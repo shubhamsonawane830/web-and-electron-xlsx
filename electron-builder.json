@@ -1,0 +1,17 @@
+{
+    "name": "your-app-name",
+    "version": "1.0.0",
+    "description": "Your app description",
+    "author": "Your name",
+    "build": {
+      "appId": "your.app.id",
+      "productName": "Varun's xlsx to json",
+      "directories": {
+        "output": "dist"
+      },
+      "win": {
+        "target": "nsis"
+      }
+    }
+  }
+  

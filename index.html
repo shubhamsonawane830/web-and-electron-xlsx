@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>XLSX to JSON Converter</title>
+    <style>
+      .container {
+        display: flex;
+      }
+      .file-container {
+        width: 60%;
+        padding: 20px;
+      }
+      #convertBtn {
+        top: 130px;
+        position: absolute;
+        left: 27px;
+      }
+
+      #downloadBtn {
+        top: 130px;
+        position: absolute;
+        left: 170px;
+      }
+
+      #selectAllBtn {
+        top: 180px;
+        position: absolute;
+        left: 27px;
+      }
+
+      #clearBtn {
+        top: 180px;
+        position: absolute;
+        left: 170px;
+      }
+
+      #progressMessage {
+        width: 40%;
+        /* position: absolute;
+        top: 40px;
+        left: 550px; */
+        overflow-y: auto;
+        padding: 20px;
+      }
+
+      #conversionProgress {
+        position: absolute;
+        top: 60px;
+        left: 530px;
+      }
+
+      #progressPercentage {
+        position: absolute;
+        top: 60px;
+        left: 700px;
+      }
+
+      .checkbox-container {
+        width: 40%;
+        overflow-y: auto;
+        max-height: 500px;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .checkbox-label {
+        display: block;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h3 style="display: flex; align-items: center; justify-content: center">
+      XLSX to JSON Converter
+    </h3>
+
+    <div class="container">
+      <div class="file-container">
+        <input type="file" id="xlsxFile" accept=".xlsx" />
+        <button id="convertBtn">Convert to JSON</button>
+        <button id="downloadBtn" disabled>Download JSON</button>
+      </div>
+      <div class="checkbox-container" id="sheetCheckboxContainer"></div>
+    </div>
+
+    <div class="progress-container">
+      <p id="progressMessage"></p>
+      <!-- <progress id="progressBar" value="0" max="100"></progress> -->
+      <progress id="conversionProgress" value="0" max="100"></progress>
+      <span id="progressPercentage">0%</span>
+      <!-- <label id="progressLabel">0%</label> -->
+    </div>
+
+    <button id="selectAllBtn">Select All</button>
+    <button id="clearBtn">Clear</button>
+    <script src="download/to/FileSaver.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/file-saver"></script>
+    <script src="app.js"></script>
+    <div id="downloadLinksContainer"></div>
+  </body>
+</html>
