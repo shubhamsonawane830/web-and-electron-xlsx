@@ -1,2 +1,3 @@
 # web-and-electron-xlsx
-Xlsx to json conversion using electron.
+npm install npm start (to run locally) npm run dist (to build a .exe file)
+
