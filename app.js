@@ -52,6 +52,10 @@ fileInput.addEventListener("change", function () {
     });
 
     updateDownloadButton();
+
+    // Reset progress bar and percentage
+    document.getElementById("conversionProgress").value = 0;
+    document.getElementById("progressPercentage").textContent = "0%";
   };
 
   reader.readAsArrayBuffer(file);
@@ -155,10 +159,12 @@ function convertToJSON() {
 
       // const progress = Math.floor((completedSheets / totalSheets) * 100);
       document.getElementById("conversionProgress").max = totalSheets;
-      const progress = completedSheets + 1;
+      // const progress = completedSheets + 1;
+      const progress = totalSheets;
+
       document.getElementById("conversionProgress").value = progress;
-      document.getElementById("progressPercentage").textContent =
-        Math.floor((progress / totalSheets) * 100) + "%";
+      document.getElementById("progressPercentage").textContent = 100 + "%";
+      // Math.floor((progress / totalSheets) * 100) + "%";
 
       // document.getElementById("conversionProgress").value = progress;
       // document.getElementById("progressPercentage").textContent =
@@ -261,11 +267,14 @@ function convertToJSON() {
       return;
     }
 
+    downloadBtn.disabled = false;
+
     downloadBtn.addEventListener("click", function () {
       const oldLinks = document.querySelectorAll("#downloadLinksContainer a");
       oldLinks.forEach((link) => {
         link.remove();
       });
+      convertToJSONDownloadclick();
 
       convertedFiles.forEach((sheetName) => {
         const jsonContent = JSON.stringify(
@@ -275,7 +284,6 @@ function convertToJSON() {
         );
         const blob = new Blob([jsonContent], { type: "application/json" });
         const downloadLink = URL.createObjectURL(blob);
-
         if (downloadLink) {
           const anchor = document.createElement("a");
           anchor.href = downloadLink;
@@ -286,13 +294,40 @@ function convertToJSON() {
           document.getElementById("downloadLinksContainer").appendChild(anchor);
         }
       });
+
+      // downloadLinks.forEach((link) => {
+      //   const anchor = document.createElement("a");
+      //   anchor.href = link.downloadLink;
+      //   anchor.download = `${link.sheetName}.json`;
+      //   anchor.textContent = `${link.sheetName}.json`;
+      //   anchor.style.display = "block";
+
+      //   document.body.appendChild(anchor);
+
+      //   // Trigger the click event to initiate the download
+      //   anchor.click();
+
+      //   // Remove the dynamically created anchor element
+      //   document.body.removeChild(anchor);
+      // });
+
+      // jsonArray.forEach((jsonSheetData) => {
+      //   const sheetName = jsonSheetData.sheetName;
+      //   const sheetData = jsonSheetData.data;
+
+      //   const jsonContent = JSON.stringify(sheetData, null, 2);
+      //   const blob = new Blob([jsonContent], { type: "application/json" });
+      //   const fileName = `${sheetName}.json`;
+      //   saveAs(blob, fileName);
+
+      //   // // Add the downloaded file name to the downloadedFiles array
+      //   downloadedFiles.push(fileName);
+      // });
     });
   };
 
   reader.readAsArrayBuffer(file);
 }
-
-downloadBtn.disabled = false;
 
 ////////////
 
@@ -378,10 +413,12 @@ function convertToJSONDownloadclick() {
 
       // const progress = Math.floor((completedSheets / totalSheets) * 100);
       document.getElementById("conversionProgress").max = totalSheets;
-      const progress = completedSheets + 1;
+      // const progress = completedSheets + 1;
+      const progress = totalSheets;
+
       document.getElementById("conversionProgress").value = progress;
-      document.getElementById("progressPercentage").textContent =
-        Math.floor((progress / totalSheets) * 100) + "%";
+      document.getElementById("progressPercentage").textContent = 100 + "%";
+      // Math.floor((progress / totalSheets) * 100) + "%";
 
       // document.getElementById("conversionProgress").value = progress;
       // document.getElementById("progressPercentage").textContent =
@@ -484,6 +521,8 @@ function convertToJSONDownloadclick() {
       return;
     }
 
+    downloadBtn.disabled = false;
+
     downloadBtn.addEventListener("click", function () {
       const oldLinks = document.querySelectorAll("#downloadLinksContainer a");
       oldLinks.forEach((link) => {
@@ -498,7 +537,6 @@ function convertToJSONDownloadclick() {
         );
         const blob = new Blob([jsonContent], { type: "application/json" });
         const downloadLink = URL.createObjectURL(blob);
-
         if (downloadLink) {
           const anchor = document.createElement("a");
           anchor.href = downloadLink;
@@ -509,13 +547,40 @@ function convertToJSONDownloadclick() {
           document.getElementById("downloadLinksContainer").appendChild(anchor);
         }
       });
+
+      // downloadLinks.forEach((link) => {
+      //   const anchor = document.createElement("a");
+      //   anchor.href = link.downloadLink;
+      //   anchor.download = `${link.sheetName}.json`;
+      //   anchor.textContent = `${link.sheetName}.json`;
+      //   anchor.style.display = "block";
+
+      //   document.body.appendChild(anchor);
+
+      //   // Trigger the click event to initiate the download
+      //   anchor.click();
+
+      //   // Remove the dynamically created anchor element
+      //   document.body.removeChild(anchor);
+      // });
+
+      // jsonArray.forEach((jsonSheetData) => {
+      //   const sheetName = jsonSheetData.sheetName;
+      //   const sheetData = jsonSheetData.data;
+
+      //   const jsonContent = JSON.stringify(sheetData, null, 2);
+      //   const blob = new Blob([jsonContent], { type: "application/json" });
+      //   const fileName = `${sheetName}.json`;
+      //   saveAs(blob, fileName);
+
+      //   // // Add the downloaded file name to the downloadedFiles array
+      //   downloadedFiles.push(fileName);
+      // });
     });
   };
 
   reader.readAsArrayBuffer(file);
 }
-
-downloadBtn.disabled = false;
 
 //////////////////////
 
