@@ -51,8 +51,6 @@ fileInput.addEventListener("change", function () {
       sheetCheckboxContainer.appendChild(document.createElement("br"));
     });
 
-    updateDownloadButton();
-
     // Reset progress bar and percentage
     document.getElementById("conversionProgress").value = 0;
     document.getElementById("progressPercentage").textContent = "0%";
@@ -77,8 +75,71 @@ clearBtn.addEventListener("click", function () {
   updateDownloadButton();
 });
 
+// Function to check if a cell value has a math formula
+function hasMathFormula(cellValue, allowedFormulas) {
+  if (typeof cellValue !== "string") {
+    return false;
+  }
+
+  const formulaPattern = /^=([A-Z]+)\(/;
+  const matches = cellValue.match(formulaPattern);
+  if (matches && matches.length > 1) {
+    const formula = matches[1];
+    return !allowedFormulas.includes(formula);
+  }
+  return false;
+}
+
+// Function to clear existing download links
+function clearDownloadLinks() {
+  const existingLinks = document.querySelectorAll(".download-link");
+  existingLinks.forEach((link) => link.remove());
+}
+
+// Function to generate the error log file
+function generateErrorLog(invalidCellInfo) {
+  if (invalidCellInfo.length === 0) {
+    // No errors, no need to generate the error log
+    return;
+  }
+
+  const timestamp = new Date().toISOString();
+  let errorLogMessage = `Error Log (${timestamp}):\n\n`;
+
+  invalidCellInfo.forEach((errorInfo) => {
+    errorLogMessage += `Sheet: ${errorInfo.sheet}\n`;
+    errorLogMessage += `Value: ${errorInfo.value}\n`;
+    errorLogMessage += `Column: ${errorInfo.column}\n`;
+    errorLogMessage += `Row: ${errorInfo.row}\n`;
+    errorLogMessage += `Reasons: ${errorInfo.reason.join(", ")}\n\n`;
+  });
+
+  const errorLogContent = errorLogMessage;
+  const blob = new Blob([errorLogContent], { type: "text/plain" });
+  const downloadLink = URL.createObjectURL(blob);
+
+  const anchor = document.createElement("a");
+  anchor.href = downloadLink;
+  anchor.download = `error_log_${timestamp}.txt`;
+  anchor.className = "download-link";
+  anchor.textContent = `error_log_${timestamp}.txt`;
+  anchor.style.display = "block";
+
+  document.body.appendChild(anchor);
+}
+
+// Function to convert XLSX file to JSON
 function convertToJSON() {
   const invalidCellInfo = []; // Store information about invalid cells
+  const convertedSheets = []; // Store names of successfully converted sheets
+  const notConvertedSheets = []; // Store names of sheets that were not converted
+
+  // Clear existing download links and error log link
+  clearDownloadLinks();
+  const existingErrorLogLink = document.querySelector(".error-log-link");
+  if (existingErrorLogLink) {
+    existingErrorLogLink.remove();
+  }
 
   const checkboxes = document.querySelectorAll(
     "#sheetCheckboxContainer input[type='checkbox']"
@@ -111,31 +172,15 @@ function convertToJSON() {
     }
 
     const jsonArray = [];
-    const invalidCellInfo = [];
     const totalSheets = selectedSheets.length;
     let completedSheets = 0;
     let convertedFiles = [];
-    let downloadedFiles = [];
-    let downloadLink;
-
-    // Add a new array to store the converted JSON files
-    let jsonFiles = [];
-
-    const downloadLinks = [];
 
     selectedSheets.forEach((checkbox) => {
       const sheetName = checkbox.value;
       const worksheet = workbook.Sheets[sheetName];
       const sheetData = XLSX.utils.sheet_to_json(worksheet);
 
-      const jsonContent = JSON.stringify(sheetData, null, 2);
-      const blob = new Blob([jsonContent], { type: "application/json" });
-      const downloadLink = URL.createObjectURL(blob);
-
-      downloadLinks.push({
-        sheetName: sheetName,
-        downloadLink: downloadLink,
-      });
       const headerRow = sheetData[0];
       const columnKeys = Object.keys(headerRow);
 
@@ -155,20 +200,6 @@ function convertToJSON() {
         `[^\\w${exceptionCharacters.join("\\\\")}]`,
         "g"
       );
-      // new RegExp(`[^\\w${allowedExceptions.join('\\\\')}]`, 'g');
-
-      // const progress = Math.floor((completedSheets / totalSheets) * 100);
-      document.getElementById("conversionProgress").max = totalSheets;
-      // const progress = completedSheets + 1;
-      const progress = totalSheets;
-
-      document.getElementById("conversionProgress").value = progress;
-      document.getElementById("progressPercentage").textContent = 100 + "%";
-      // Math.floor((progress / totalSheets) * 100) + "%";
-
-      // document.getElementById("conversionProgress").value = progress;
-      // document.getElementById("progressPercentage").textContent =
-      //   progress + "%";
 
       const jsonSheetData = {
         sheetName: sheetName,
@@ -206,7 +237,7 @@ function convertToJSON() {
               );
             }
             if (hasMathFormula(cellValue, allowedFormulas)) {
-              errorInfo.reason.push("Contains an invalid math formula.");
+              errorInfo.reason.push("Contains disallowed formula(s).");
             }
 
             invalidCellInfo.push(errorInfo);
@@ -215,374 +246,83 @@ function convertToJSON() {
         }
       });
 
-      if (hasErrors) {
-        console.log(
-          `Skipping JSON conversion for sheet ${sheetName} due to errors.`
-        );
-        return; // Skip JSON conversion for this sheet
+      if (!hasErrors) {
+        const jsonContent = JSON.stringify(jsonSheetData, null, 2);
+        const blob = new Blob([jsonContent], { type: "application/json" });
+        const downloadLink = URL.createObjectURL(blob);
+
+        const anchor = document.createElement("a");
+        anchor.href = downloadLink;
+        anchor.download = `${sheetName}.json`;
+        anchor.className = "download-link";
+        anchor.textContent = `${sheetName}.json`;
+        anchor.style.display = "block";
+
+        document.body.appendChild(anchor);
+
+        convertedSheets.push(sheetName);
+      } else {
+        notConvertedSheets.push(sheetName);
       }
 
       completedSheets++;
 
-      // Add the converted sheet name to the convertedFiles array
-      convertedFiles.push(sheetName);
-    });
+      // Update progress bar
+      updateProgressBar(completedSheets, totalSheets);
 
-    // Update the progress message on the UI
-    const progressMessage = `JSON conversion completed for ${completedSheets} sheet(s) of  total ${totalSheets} sheet(s).`;
-    progressMessageElement.textContent = progressMessage;
-
-    // Display completion message as a popup
-    const message = `Conversion completed for the following sheet(s):\n\n${convertedFiles.join(
-      "\n"
-    )}`;
-    alert(message);
-
-    if (invalidCellInfo.length > 0) {
-      const errorMessage =
-        "Error: The XLSX data contains invalid cells. Please check the log file for details.";
-      alert(errorMessage);
-
-      const timestamp = new Date().toISOString().replace(/[-:.]/g, "");
-      const logFileName = logFilesDownloadLocation + `error_${timestamp}.txt`;
-
-      let logFileContent = `${errorMessage}\n\n`;
-
-      invalidCellInfo.forEach((errorInfo) => {
-        logFileContent += `Sheet: ${errorInfo.sheet}\n`;
-        logFileContent += `Cell Value: ${errorInfo.value}\n`;
-        logFileContent += `Column: ${errorInfo.column}\n`;
-        logFileContent += `Row: ${errorInfo.row}\n`;
-        logFileContent += `Reason: ${errorInfo.reason.join(", ")}\n\n`;
-      });
-
-      const blob = new Blob([logFileContent], { type: "text/plain" });
-      saveAs(blob, logFileName);
-
-      return;
-    }
-
-    if (completedSheets === 0) {
-      alert("No data found in the selected sheets.");
-      return;
-    }
-
-    downloadBtn.disabled = false;
-
-    downloadBtn.addEventListener("click", function () {
-      const oldLinks = document.querySelectorAll("#downloadLinksContainer a");
-      oldLinks.forEach((link) => {
-        link.remove();
-      });
-      convertToJSONDownloadclick();
-
-      convertedFiles.forEach((sheetName) => {
-        const jsonContent = JSON.stringify(
-          jsonArray.find((json) => json.sheetName === sheetName).data,
-          null,
-          2
-        );
-        const blob = new Blob([jsonContent], { type: "application/json" });
-        const downloadLink = URL.createObjectURL(blob);
-        if (downloadLink) {
-          const anchor = document.createElement("a");
-          anchor.href = downloadLink;
-          anchor.download = `${sheetName}.json`;
-          anchor.textContent = `${sheetName}.json`;
-          anchor.style.display = "block";
-
-          document.getElementById("downloadLinksContainer").appendChild(anchor);
-        }
-      });
-
-      // downloadLinks.forEach((link) => {
-      //   const anchor = document.createElement("a");
-      //   anchor.href = link.downloadLink;
-      //   anchor.download = `${link.sheetName}.json`;
-      //   anchor.textContent = `${link.sheetName}.json`;
-      //   anchor.style.display = "block";
-
-      //   document.body.appendChild(anchor);
-
-      //   // Trigger the click event to initiate the download
-      //   anchor.click();
-
-      //   // Remove the dynamically created anchor element
-      //   document.body.removeChild(anchor);
-      // });
-
-      // jsonArray.forEach((jsonSheetData) => {
-      //   const sheetName = jsonSheetData.sheetName;
-      //   const sheetData = jsonSheetData.data;
-
-      //   const jsonContent = JSON.stringify(sheetData, null, 2);
-      //   const blob = new Blob([jsonContent], { type: "application/json" });
-      //   const fileName = `${sheetName}.json`;
-      //   saveAs(blob, fileName);
-
-      //   // // Add the downloaded file name to the downloadedFiles array
-      //   downloadedFiles.push(fileName);
-      // });
-    });
-  };
-
-  reader.readAsArrayBuffer(file);
-}
-
-////////////
-
-function convertToJSONDownloadclick() {
-  const invalidCellInfo = []; // Store information about invalid cells
-
-  const checkboxes = document.querySelectorAll(
-    "#sheetCheckboxContainer input[type='checkbox']"
-  );
-  const selectedSheets = Array.from(checkboxes).filter(
-    (checkbox) => checkbox.checked
-  );
-
-  if (selectedSheets.length === 0) {
-    alert("Please select at least one sheet.");
-    return;
-  }
-
-  const file = fileInput.files[0];
-
-  if (!file) {
-    alert("Please select an XLSX file.");
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    const data = new Uint8Array(e.target.result);
-    let workbook;
-    try {
-      workbook = XLSX.read(data, { type: "array" });
-    } catch (error) {
-      alert("Invalid XLSX file. Please select a valid file.");
-      return;
-    }
-
-    const jsonArray = [];
-    const invalidCellInfo = [];
-    const totalSheets = selectedSheets.length;
-    let completedSheets = 0;
-    let convertedFiles = [];
-    let downloadedFiles = [];
-    let downloadLink;
-
-    // Add a new array to store the converted JSON files
-    let jsonFiles = [];
-
-    const downloadLinks = [];
-
-    selectedSheets.forEach((checkbox) => {
-      const sheetName = checkbox.value;
-      const worksheet = workbook.Sheets[sheetName];
-      const sheetData = XLSX.utils.sheet_to_json(worksheet);
-
-      const jsonContent = JSON.stringify(sheetData, null, 2);
-      const blob = new Blob([jsonContent], { type: "application/json" });
-      const downloadLink = URL.createObjectURL(blob);
-
-      downloadLinks.push({
-        sheetName: sheetName,
-        downloadLink: downloadLink,
-      });
-      const headerRow = sheetData[0];
-      const columnKeys = Object.keys(headerRow);
-
-      const exceptionCharacters = [
-        "-",
-        "_",
-        " ",
-        ".",
-        "\u00ED",
-        "\u00F3",
-        "\u00E9",
-      ]; // Include í, ó, and é as exceptions
-
-      const allowedFormulas = ["SUM", "AVERAGE", "MAX", "MIN"];
-
-      const specialCharactersRegex = new RegExp(
-        `[^\\w${exceptionCharacters.join("\\\\")}]`,
-        "g"
-      );
-      // new RegExp(`[^\\w${allowedExceptions.join('\\\\')}]`, 'g');
-
-      // const progress = Math.floor((completedSheets / totalSheets) * 100);
-      document.getElementById("conversionProgress").max = totalSheets;
-      // const progress = completedSheets + 1;
-      const progress = totalSheets;
-
-      document.getElementById("conversionProgress").value = progress;
-      document.getElementById("progressPercentage").textContent = 100 + "%";
-      // Math.floor((progress / totalSheets) * 100) + "%";
-
-      // document.getElementById("conversionProgress").value = progress;
-      // document.getElementById("progressPercentage").textContent =
-      //   progress + "%";
-
-      const jsonSheetData = {
-        sheetName: sheetName,
-        data: sheetData,
-      };
-
-      jsonArray.push(jsonSheetData);
-
-      let hasErrors = false;
-
-      sheetData.forEach((row, rowIndex) => {
-        for (const key in row) {
-          const cellValue = row[key];
-
-          if (
-            specialCharactersRegex.test(cellValue) ||
-            cellValue.length > 128 ||
-            hasMathFormula(cellValue, allowedFormulas)
-          ) {
-            const columnName = columnKeys.find((colKey) => colKey === key);
-            const errorInfo = {
-              sheet: sheetName,
-              value: cellValue,
-              column: columnName,
-              row: rowIndex + 1,
-              reason: [],
-            };
-
-            if (specialCharactersRegex.test(cellValue)) {
-              errorInfo.reason.push("Contains invalid special character(s).");
-            }
-            if (cellValue.length > 128) {
-              errorInfo.reason.push(
-                "Exceeds the maximum allowed length of 128 characters."
-              );
-            }
-            if (hasMathFormula(cellValue, allowedFormulas)) {
-              errorInfo.reason.push("Contains an invalid math formula.");
-            }
-
-            invalidCellInfo.push(errorInfo);
-            hasErrors = true;
+      if (completedSheets === totalSheets) {
+        if (invalidCellInfo.length > 0) {
+          let alertMessage =
+            "Conversion completed with errors. Please check the error log.\n\n";
+          if (convertedSheets.length > 0) {
+            alertMessage +=
+              "The following sheets were converted successfully:\n" +
+              convertedSheets.join(", ") +
+              "\n\n";
           }
+          if (notConvertedSheets.length > 0) {
+            alertMessage +=
+              "The following sheets could not be converted:\n" +
+              notConvertedSheets.join(", ");
+          }
+          alert(alertMessage);
+        } else {
+          let alertMessage = "Conversion completed successfully.\n\n";
+          if (convertedSheets.length > 0) {
+            alertMessage +=
+              "The following sheets were converted successfully:\n" +
+              convertedSheets.join(", ") +
+              "\n\n";
+          }
+          if (notConvertedSheets.length > 0) {
+            alertMessage +=
+              "The following sheets could not be converted:\n" +
+              notConvertedSheets.join(", ");
+          }
+          alert(alertMessage);
         }
-      });
 
-      if (hasErrors) {
-        console.log(
-          `Skipping JSON conversion for sheet ${sheetName} due to errors.`
-        );
-        return; // Skip JSON conversion for this sheet
+        generateErrorLog(invalidCellInfo);
+        generateDownloadLinks(convertedSheets);
       }
-
-      completedSheets++;
-
-      // Add the converted sheet name to the convertedFiles array
-      convertedFiles.push(sheetName);
-    });
-
-    // Update the progress message on the UI
-    const progressMessage = `JSON conversion completed for ${completedSheets} sheet(s) of  total ${totalSheets} sheet(s).`;
-    progressMessageElement.textContent = progressMessage;
-
-    // Display completion message as a popup
-    const message = `Conversion completed for the following sheet(s):\n\n${convertedFiles.join(
-      "\n"
-    )}`;
-    // alert(message);
-
-    if (invalidCellInfo.length > 0) {
-      const errorMessage =
-        "Error: The XLSX data contains invalid cells. Please check the log file for details.";
-      // alert(errorMessage);
-
-      const timestamp = new Date().toISOString().replace(/[-:.]/g, "");
-      const logFileName = logFilesDownloadLocation + `error_${timestamp}.txt`;
-
-      let logFileContent = `${errorMessage}\n\n`;
-
-      invalidCellInfo.forEach((errorInfo) => {
-        logFileContent += `Sheet: ${errorInfo.sheet}\n`;
-        logFileContent += `Cell Value: ${errorInfo.value}\n`;
-        logFileContent += `Column: ${errorInfo.column}\n`;
-        logFileContent += `Row: ${errorInfo.row}\n`;
-        logFileContent += `Reason: ${errorInfo.reason.join(", ")}\n\n`;
-      });
-
-      const blob = new Blob([logFileContent], { type: "text/plain" });
-      saveAs(blob, logFileName);
-
-      return;
-    }
-
-    if (completedSheets === 0) {
-      alert("No data found in the selected sheets.");
-      return;
-    }
-
-    downloadBtn.disabled = false;
-
-    downloadBtn.addEventListener("click", function () {
-      const oldLinks = document.querySelectorAll("#downloadLinksContainer a");
-      oldLinks.forEach((link) => {
-        link.remove();
-      });
-
-      convertedFiles.forEach((sheetName) => {
-        const jsonContent = JSON.stringify(
-          jsonArray.find((json) => json.sheetName === sheetName).data,
-          null,
-          2
-        );
-        const blob = new Blob([jsonContent], { type: "application/json" });
-        const downloadLink = URL.createObjectURL(blob);
-        if (downloadLink) {
-          const anchor = document.createElement("a");
-          anchor.href = downloadLink;
-          anchor.download = `${sheetName}.json`;
-          anchor.textContent = `${sheetName}.json`;
-          anchor.style.display = "block";
-
-          document.getElementById("downloadLinksContainer").appendChild(anchor);
-        }
-      });
-
-      // downloadLinks.forEach((link) => {
-      //   const anchor = document.createElement("a");
-      //   anchor.href = link.downloadLink;
-      //   anchor.download = `${link.sheetName}.json`;
-      //   anchor.textContent = `${link.sheetName}.json`;
-      //   anchor.style.display = "block";
-
-      //   document.body.appendChild(anchor);
-
-      //   // Trigger the click event to initiate the download
-      //   anchor.click();
-
-      //   // Remove the dynamically created anchor element
-      //   document.body.removeChild(anchor);
-      // });
-
-      // jsonArray.forEach((jsonSheetData) => {
-      //   const sheetName = jsonSheetData.sheetName;
-      //   const sheetData = jsonSheetData.data;
-
-      //   const jsonContent = JSON.stringify(sheetData, null, 2);
-      //   const blob = new Blob([jsonContent], { type: "application/json" });
-      //   const fileName = `${sheetName}.json`;
-      //   saveAs(blob, fileName);
-
-      //   // // Add the downloaded file name to the downloadedFiles array
-      //   downloadedFiles.push(fileName);
-      // });
     });
   };
 
   reader.readAsArrayBuffer(file);
 }
 
-//////////////////////
+// Function to update the progress bar
+function updateProgressBar(completedSheets, totalSheets) {
+  const progress = (completedSheets / totalSheets) * 100;
+  document.getElementById("conversionProgress").value = progress;
+  document.getElementById("progressPercentage").textContent = `${progress}%`;
+}
+
+// Function to reset the progress bar
+function resetProgressBar() {
+  document.getElementById("conversionProgress").value = 0;
+  document.getElementById("progressPercentage").textContent = "0%";
+}
 
 function updateDownloadButton() {
   const checkboxes = document.querySelectorAll(
@@ -592,18 +332,9 @@ function updateDownloadButton() {
     (checkbox) => checkbox.checked
   );
 
-  downloadBtn.disabled = selectedSheets.length === 0;
-}
-
-function hasMathFormula(value, allowedFormulas) {
-  // const formulaRegex = /([A-Z]+)\(/g;
-  const formulaRegex = /^=/; // Regex to match math formulas
-  let match;
-  while ((match = formulaRegex.exec(value))) {
-    const formula = match[1];
-    if (!allowedFormulas.includes(formula)) {
-      return true;
-    }
+  if (selectedSheets.length > 0) {
+    downloadBtn.disabled = false;
+  } else {
+    downloadBtn.disabled = true;
   }
-  return false;
 }
